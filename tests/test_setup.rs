@@ -11,7 +11,7 @@ pub struct TestSetup {
 impl AsyncTestContext for TestSetup {
   async fn setup() -> Self {
     let mut client = db_client().await.unwrap();
-    run_migrations(&mut client).await;
+    run_migrations(&mut client).await.unwrap();
     Self { client }
   }
 

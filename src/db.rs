@@ -1,14 +1,10 @@
 use crate::config::Config;
-use refinery::embed_migrations;
 use tokio_postgres::{connect, Client, Error, NoTls};
 
-pub async fn run_migrations(client: &mut Client) {
-  embed_migrations!("./migrations");
+pub async fn run_migrations(client: &mut Client) -> Result<refinery::Report, refinery::Error> {
+  refinery::embed_migrations!("./migrations");
   // run migrations
-  match migrations::runner().run_async(client).await {
-    Ok(_) => log::info!("database migrations ran successfully"),
-    Err(_) => log::error!("database migrations failed"),
-  };
+  migrations::runner().run_async(client).await
 }
 
 pub async fn db_client() -> Result<Client, Error> {
