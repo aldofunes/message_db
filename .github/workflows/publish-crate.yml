@@ -15,8 +15,6 @@ jobs:
     services:
       message_store:
         image: postgres:12
-        ports:
-          - 5432:5432
         env:
           POSTGRES_DB: message_store
           POSTGRES_USER: message_store
