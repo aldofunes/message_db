@@ -5,7 +5,10 @@ use tokio_postgres::{connect, Client, Error, NoTls};
 pub async fn run_migrations(client: &mut Client) {
   embed_migrations!("./migrations");
   // run migrations
-  migrations::runner().run_async(client).await.unwrap();
+  match migrations::runner().run_async(client).await {
+    Ok(_) => log::info!("database migrations ran successfully"),
+    Err(_) => log::error!("database migrations failed"),
+  };
 }
 
 pub async fn db_client() -> Result<Client, Error> {
