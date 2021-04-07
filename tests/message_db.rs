@@ -46,8 +46,10 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
 #[test_context(TestSetup)]
 #[tokio::test]
 async fn it_should_subscribe(ctx: &mut TestSetup) {
+  log::info!("building MessageDb");
   let message_db = MessageDb::new(&ctx.client);
 
+  log::info!("generating category name");
   let category: String = thread_rng()
     .sample_iter(&Alphanumeric)
     .take(7)
@@ -58,16 +60,19 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
   let stream_name = format!("{}-{}", category, stream_id);
 
   // publish 100 messages
+  log::info!("publishing messages");
   for _ in 0..100 {
     publish_test_message(&message_db, &stream_name).await;
   }
 
+  log::info!("building handlers");
   let mut handlers: Handlers = HashMap::new();
   handlers.insert(
     String::from("TestEvent"),
     Box::new(|message| println!("{:?}", message.id)),
   );
 
+  log::info!("building subscription");
   let mut subscription = message_db.subscriber.subscribe(
     category,
     handlers,
@@ -80,6 +85,7 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
     None,
   );
 
+  log::info!("will tick");
   let messages_processed = subscription.tick().await;
 
   assert_eq!(messages_processed, 100);

@@ -8,7 +8,7 @@ pub async fn publish_test_message(message_db: &MessageDb<'_>, stream_name: &str)
   let data = json!({ "foo": "bar" });
   let metadata = json!({ "baz": "qux" });
 
-  message_db
+  match message_db
     .writer
     .write_message(
       &id,
@@ -19,5 +19,8 @@ pub async fn publish_test_message(message_db: &MessageDb<'_>, stream_name: &str)
       None,
     )
     .await
-    .unwrap();
+  {
+    Ok(_) => log::info!("published message"),
+    Err(_) => log::error!("failed to publish message"),
+  };
 }
