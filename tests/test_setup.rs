@@ -12,6 +12,12 @@ impl AsyncTestContext for TestSetup {
   async fn setup() -> Self {
     pretty_env_logger::init();
     let mut client = db_client().await.unwrap();
+
+    client
+      .execute("DROP TABLE IF EXISTS refinery_schema_history CASCADE;", &[])
+      .await
+      .unwrap();
+
     match run_migrations(&mut client).await {
       Ok(_) => log::info!("database migrations were successful"),
       Err(error) => {
