@@ -33,6 +33,7 @@ jobs:
       - name: Run tests
         run: cargo test
         env:
+          RUST_LOG: "info"
           MESSAGE_DB_CONNECTION_URI: "postgresql://postgres:postgres@localhost:5432/postgres"
 
       - name: Publish crate
