@@ -63,7 +63,7 @@ impl<'a> Reader<'a> {
           $1::varchar,
           $2::bigint,
           $3::bigint,
-          $4::varchar,
+          $4::varchar
         )",
         &[&stream_name, &position, &batch_size, &condition],
       )
