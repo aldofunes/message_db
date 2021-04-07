@@ -10,7 +10,10 @@ pub struct TestSetup {
 #[async_trait]
 impl AsyncTestContext for TestSetup {
   async fn setup() -> Self {
-    pretty_env_logger::init();
+    match pretty_env_logger::try_init() {
+      Ok(_) => log::info!("logger initialized"),
+      Err(error) => log::error!("error: {}", error),
+    };
     let mut client = db_client().await.unwrap();
 
     match run_migrations(&mut client).await {

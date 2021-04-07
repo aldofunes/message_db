@@ -43,7 +43,10 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
     .await
   {
     Ok(message) => message,
-    Err(e) => log::error!("failed to get last stream message {}", e),
+    Err(e) => {
+      log::error!("failed to get last stream message: {}", e);
+      panic!("failed to get last stream message");
+    }
   };
 
   assert_eq!(message.id, id);
