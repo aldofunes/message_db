@@ -21,7 +21,7 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
   let data = json!({ "foo": "bar" });
   let metadata = json!({ "baz": "qux" });
 
-  message_db
+  match message_db
     .writer
     .write_message(
       &id,
@@ -32,13 +32,19 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
       None,
     )
     .await
-    .unwrap();
+  {
+    Ok(_) => log::info!("message written"),
+    Err(e) => log::error!("message failed to be written {}", e),
+  };
 
-  let message = message_db
+  let message = match message_db
     .reader
     .get_last_stream_message(&stream_name)
     .await
-    .unwrap();
+  {
+    Ok(message) => message,
+    Err(e) => log::error!("failed to get last stream message {}", e),
+  };
 
   assert_eq!(message.id, id);
 }
