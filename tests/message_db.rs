@@ -1,9 +1,13 @@
 mod test_setup;
+mod utils;
 
 use message_db::{Handlers, MessageDb};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde_json::json;
 use std::collections::HashMap;
 use test_context::{futures, test_context};
 use test_setup::TestSetup;
+use utils::publish_test_message;
 use uuid::Uuid;
 
 #[test_context(TestSetup)]
@@ -12,10 +16,10 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
   let message_db = MessageDb::new(&ctx.client);
 
   let id = Uuid::new_v4();
-  let stream_name = String::from("test-79fe36d2-072c-451b-8d1a-6950a5658477");
+  let stream_name = String::from(format!("test-{}", Uuid::new_v4()));
   let message_type = String::from("TestEvent");
-  let data = serde_json::from_str(r#"{"foo":"bar"}"#).unwrap();
-  let metadata = serde_json::from_str(r#"{"baz":"qux"}"#).unwrap();
+  let data = json!({ "foo": "bar" });
+  let metadata = json!({ "baz": "qux" });
 
   message_db
     .writer
@@ -44,24 +48,19 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
 async fn it_should_subscribe(ctx: &mut TestSetup) {
   let message_db = MessageDb::new(&ctx.client);
 
-  let id = Uuid::new_v4();
-  let stream_name = String::from("test-79fe36d2-072c-451b-8d1a-6950a5658477");
-  let message_type = String::from("TestEvent");
-  let data = serde_json::from_str(r#"{"foo":"bar"}"#).unwrap();
-  let metadata = serde_json::from_str(r#"{"baz":"qux"}"#).unwrap();
+  let category: String = thread_rng()
+    .sample_iter(&Alphanumeric)
+    .take(7)
+    .map(char::from)
+    .collect();
 
-  message_db
-    .writer
-    .write_message(
-      &id,
-      &stream_name,
-      &message_type,
-      &data,
-      Some(&metadata),
-      None,
-    )
-    .await
-    .unwrap();
+  let stream_id = Uuid::new_v4();
+  let stream_name = format!("{}-{}", category, stream_id);
+
+  // publish 100 messages
+  for _ in 0..100 {
+    publish_test_message(&message_db, &stream_name).await;
+  }
 
   let mut handlers: Handlers = HashMap::new();
   handlers.insert(
@@ -70,16 +69,18 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
   );
 
   let mut subscription = message_db.subscriber.subscribe(
-    String::from("test"),
+    category,
     handlers,
     String::from("test_subscriber"),
-    Some(5),
     Some(1000),
-    Some(10),
+    Some(1000),
+    Some(1000),
     None,
     None,
     None,
   );
 
-  subscription.start().await;
+  let messages_processed = subscription.tick().await;
+
+  assert_eq!(messages_processed, 100);
 }

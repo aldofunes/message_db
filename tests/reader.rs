@@ -1,48 +1,37 @@
 mod test_setup;
+mod utils;
 
 use message_db::MessageDb;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use test_context::{futures, test_context};
 use test_setup::TestSetup;
+use utils::publish_test_message;
 use uuid::Uuid;
-
-async fn publish_test_message(message_db: &MessageDb<'_>, stream_id: &Uuid) {
-  let id = Uuid::new_v4();
-  let stream_name = String::from(format!("testReader-{}", stream_id));
-  let message_type = String::from("TestEvent");
-  let data = serde_json::from_str(r#"{"foo":"bar"}"#).unwrap();
-  let metadata = serde_json::from_str(r#"{"baz":"qux"}"#).unwrap();
-
-  message_db
-    .writer
-    .write_message(
-      &id,
-      &stream_name,
-      &message_type,
-      &data,
-      Some(&metadata),
-      None,
-    )
-    .await
-    .unwrap();
-}
 
 #[test_context(TestSetup)]
 #[tokio::test]
 async fn it_works(ctx: &mut TestSetup) {
   let message_db = MessageDb::new(&ctx.client);
+  let category: String = thread_rng()
+    .sample_iter(&Alphanumeric)
+    .take(7)
+    .map(char::from)
+    .collect();
 
-  for _ in 0..500 {
+  for _ in 0..100 {
     let stream_id = Uuid::new_v4();
-    publish_test_message(&message_db, &stream_id).await;
-    publish_test_message(&message_db, &stream_id).await;
-    publish_test_message(&message_db, &stream_id).await;
+    let stream_name = format!("{}-{}", category, stream_id);
+
+    publish_test_message(&message_db, &stream_name).await;
+    publish_test_message(&message_db, &stream_name).await;
+    publish_test_message(&message_db, &stream_name).await;
   }
 
   let messages = message_db
     .reader
-    .get_category_messages(&"testReader", None, None, None, None, None, None)
+    .get_category_messages(&category, None, None, None, None, None, None)
     .await
     .unwrap();
 
-  assert_eq!(messages.len(), 100);
+  assert_eq!(messages.len(), 300);
 }
