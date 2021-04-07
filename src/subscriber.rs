@@ -102,7 +102,7 @@ impl<'a> Subscription<'a> {
 
   pub async fn tick(&mut self) -> i64 {
     let messages = self.get_next_batch_of_messages().await;
-    log::info!("tick");
+    log::trace!("tick");
     self.process_batch(messages).await
   }
 

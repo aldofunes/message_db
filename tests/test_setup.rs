@@ -10,8 +10,15 @@ pub struct TestSetup {
 #[async_trait]
 impl AsyncTestContext for TestSetup {
   async fn setup() -> Self {
+    pretty_env_logger::init();
     let mut client = db_client().await.unwrap();
-    run_migrations(&mut client).await.unwrap();
+    match run_migrations(&mut client).await {
+      Ok(_) => log::info!("database migrations were successful"),
+      Err(error) => {
+        log::error!("error: {}", error);
+        panic!("database migrations failed")
+      }
+    };
     Self { client }
   }
 
