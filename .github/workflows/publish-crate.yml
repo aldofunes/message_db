@@ -34,6 +34,7 @@ jobs:
       - name: Run tests
         run: cargo test
         env:
+          RUST_BACKTRACE: "1"
           RUST_LOG: "info"
           MESSAGE_DB_CONNECTION_URI: "postgresql://message_store:message_store@message_store:5432/message_store"
 
