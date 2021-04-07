@@ -1,8 +1,11 @@
 [package]
 name = "message_db"
-version = "0.1.0"
-authors = ["Aldo Funes <aldofunes@protonmail.com>"]
+version = "0.0.1"
+authors = ["aldofunes"]
 edition = "2018"
+description = "Event-Sourced autonomous services for rust"
+license = "MIT"
+repository = "https://github.com/aldofunes/message_db/"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
