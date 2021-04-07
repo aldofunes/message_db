@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cargo",
+      "subcommand": "build",
+      "problemMatcher": ["$rustc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "label": "Build Binary"
+    },
+    {
+      "type": "cargo",
+      "subcommand": "test",
+      "problemMatcher": ["$rustc"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "label": "Test Binary"
+    },
+    {
+      "type": "cargo",
+      "subcommand": "run",
+      "problemMatcher": ["$rustc"],
+      "label": "Run Binary"
+    }
+  ]
+}
