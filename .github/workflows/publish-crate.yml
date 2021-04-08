@@ -32,7 +32,7 @@ jobs:
         run: cargo build
 
       - name: Run tests
-        run: cargo test
+        run: cargo test --jobs 1
         env:
           RUST_LOG: "info"
           MESSAGE_DB_CONNECTION_URI: "postgresql://message_store:message_store@message_store:5432/message_store"
