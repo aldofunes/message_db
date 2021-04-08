@@ -1,7 +1,7 @@
 mod test_setup;
 mod utils;
 
-use message_db::{Handlers, MessageDb};
+use message_db::{async_callback, Handlers, Message, MessageDb};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde_json::json;
 use std::collections::HashMap;
@@ -76,10 +76,11 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
 
   log::info!("building handlers");
   let mut handlers: Handlers = HashMap::new();
-  handlers.insert(
-    String::from("TestEvent"),
-    Box::new(|message| println!("{:?}", message.id)),
-  );
+
+  async fn callback(message: Message) {
+    println!("{:?}", message.id);
+  }
+  handlers.insert(String::from("TestEvent"), async_callback!(callback));
 
   log::info!("building subscription");
   let mut subscription = message_db.subscriber.subscribe(

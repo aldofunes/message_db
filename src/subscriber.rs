@@ -2,11 +2,22 @@ use crate::message::Message;
 use crate::reader::Reader;
 use crate::writer::Writer;
 use serde_json::json;
-use std::{collections::HashMap, thread::sleep, time::Duration};
+use std::{collections::HashMap, future::Future, pin::Pin, thread::sleep, time::Duration};
 use uuid::Uuid;
 
-pub type Callback = Box<(dyn Fn(&Message) -> () + 'static)>;
+pub type Callback = fn(Message) -> Pin<Box<dyn Future<Output = ()>>>;
 pub type Handlers = HashMap<String, Callback>;
+
+#[macro_export]
+macro_rules! async_callback {
+  ($callback:expr) => {{
+    fn boxed_fn(message: Message) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()>>> {
+      Box::pin($callback(message))
+    }
+
+    boxed_fn
+  }};
+}
 
 pub struct Subscription<'a> {
   reader: Reader<'a>,
@@ -136,9 +147,8 @@ impl<'a> Subscription<'a> {
   }
 
   pub async fn handle_message(&self, message: Message) {
-    match self.handlers.get(&message.r#type) {
-      Some(handler) => handler(&message),
-      None => (),
+    if let Some(handler) = self.handlers.get(&message.r#type) {
+      handler(message).await;
     }
   }
 
@@ -216,12 +226,12 @@ mod tests {
 
   #[test]
   fn it_should_run_the_closure() {
-    let closure: Callback = Box::new(|message| {
+    async fn callback(message: Message) {
       println!("{:?}", message);
-    });
+    }
 
     let mut handlers = HashMap::new();
 
-    handlers.insert("TestEvent", closure);
+    handlers.insert("TestEvent", async_callback!(callback));
   }
 }
