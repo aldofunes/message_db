@@ -14,7 +14,7 @@ jobs:
 
     services:
       message_store:
-        image: postgres:12
+        image: postgres
         env:
           POSTGRES_DB: message_store
           POSTGRES_USER: message_store
@@ -30,6 +30,11 @@ jobs:
 
       - name: Build
         run: cargo build
+
+      - name: Run migrations
+        run: |
+          cargo install refinery_cli
+          refinery migrate -e MESSAGE_DB_CONNECTION_URI files -p ./migrations
 
       - name: Run tests
         run: cargo test --jobs 1
