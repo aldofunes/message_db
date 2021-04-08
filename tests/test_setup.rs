@@ -18,10 +18,7 @@ impl AsyncTestContext for TestSetup {
 
     match run_migrations(&mut client).await {
       Ok(_) => log::info!("database migrations were successful"),
-      Err(error) => {
-        log::error!("error: {}", error);
-        panic!("database migrations failed")
-      }
+      Err(error) => log::error!("database migrations failed: {}", error),
     };
     Self { client }
   }
