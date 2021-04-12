@@ -1,18 +1,13 @@
-mod config;
-mod db;
 mod message;
 mod reader;
 mod subscriber;
 mod writer;
 
-pub use db::{db_client, run_migrations};
 pub use message::Message;
-pub use subscriber::Handlers;
-
-use crate::reader::Reader;
-use crate::subscriber::Subscriber;
-use crate::writer::Writer;
-use tokio_postgres::Client;
+use reader::Reader;
+use sqlx::PgPool;
+use subscriber::Subscriber;
+use writer::Writer;
 
 pub struct MessageDb<'a> {
   pub reader: Reader<'a>,
@@ -21,16 +16,11 @@ pub struct MessageDb<'a> {
 }
 
 impl<'a> MessageDb<'a> {
-  pub fn new(client: &'a Client) -> Self {
-    let reader = Reader::new(&client);
-    let writer = Writer::new(&client);
-
-    let subscriber = Subscriber::new(reader, writer);
-
+  pub fn new(pool: &'a PgPool) -> Self {
     Self {
-      reader: reader,
-      writer: writer,
-      subscriber: subscriber,
+      reader: Reader::new(&pool),
+      writer: Writer::new(&pool),
+      subscriber: Subscriber::new(&pool),
     }
   }
 }

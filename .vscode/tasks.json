@@ -19,13 +19,29 @@
         "kind": "test",
         "isDefault": true
       },
-      "label": "Test Binary"
+      "options": {
+        "env": {
+          "MESSAGE_DB_CONNECTION_URI": "postgresql://postgres:postgres@localhost:5432/postgres"
+        }
+      },
+      "label": "Test Binary",
+      "dependsOn": "Run Migrations"
     },
     {
       "type": "cargo",
       "subcommand": "run",
       "problemMatcher": ["$rustc"],
       "label": "Run Binary"
+    },
+    {
+      "type": "shell",
+      "command": "refinery migrate -e DB_URI files -p ./migrations",
+      "options": {
+        "env": {
+          "DB_URI": "postgresql://postgres:postgres@localhost:5432/postgres"
+        }
+      },
+      "label": "Run Migrations"
     }
   ]
 }

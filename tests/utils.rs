@@ -10,14 +10,7 @@ pub async fn publish_test_message(message_db: &MessageDb<'_>, stream_name: &str)
 
   match message_db
     .writer
-    .write_message(
-      &id,
-      &stream_name,
-      &message_type,
-      &data,
-      Some(&metadata),
-      None,
-    )
+    .write_message(id, &stream_name, &message_type, data, Some(metadata), None)
     .await
   {
     Ok(_) => log::info!("published message"),

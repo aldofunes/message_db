@@ -2,22 +2,8 @@ use crate::message::Message;
 use crate::reader::Reader;
 use crate::writer::Writer;
 use serde_json::json;
-use std::{collections::HashMap, future::Future, pin::Pin, thread::sleep, time::Duration};
+use sqlx::{Error, PgPool};
 use uuid::Uuid;
-
-pub type Callback = fn(Message) -> Pin<Box<dyn Future<Output = ()>>>;
-pub type Handlers = HashMap<String, Callback>;
-
-#[macro_export]
-macro_rules! async_callback {
-  ($callback:expr) => {{
-    fn boxed_fn(message: Message) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()>>> {
-      Box::pin($callback(message))
-    }
-
-    boxed_fn
-  }};
-}
 
 pub struct Subscription<'a> {
   reader: Reader<'a>,
@@ -25,16 +11,12 @@ pub struct Subscription<'a> {
 
   current_position: i64,
   messages_since_last_position_write: i64,
-  keep_going: bool,
 
   subscriber_stream_name: String,
   stream_name: String,
-  handlers: Handlers,
 
-  messages_per_tick: i64,
   position_update_interval: i64,
   origin_stream_name: Option<String>,
-  tick_interval_ms: i64,
   consumer_group_member: Option<i64>,
   consumer_group_size: Option<i64>,
 }
@@ -43,12 +25,9 @@ impl<'a> Subscription<'a> {
   pub fn new(
     reader: Reader<'a>,
     writer: Writer<'a>,
-    stream_name: String,
-    handlers: Handlers,
-    subscriber_id: String,
 
-    messages_per_tick: Option<i64>,
-    tick_interval_ms: Option<i64>,
+    stream_name: String,
+    subscriber_id: String,
 
     position_update_interval: Option<i64>,
     origin_stream_name: Option<String>,
@@ -57,45 +36,22 @@ impl<'a> Subscription<'a> {
   ) -> Self {
     let current_position = 0;
     let messages_since_last_position_write = 0;
-    let keep_going = true;
     let subscriber_stream_name = format!("subscriber-{}", subscriber_id);
 
     Self {
       reader,
       writer,
       stream_name,
-      handlers,
 
       origin_stream_name,
-      messages_per_tick: messages_per_tick.unwrap_or(10),
       position_update_interval: position_update_interval.unwrap_or(100),
-      tick_interval_ms: tick_interval_ms.unwrap_or(100),
 
       current_position,
       messages_since_last_position_write,
-      keep_going,
       subscriber_stream_name,
       consumer_group_member,
       consumer_group_size,
     }
-  }
-
-  pub async fn start(&mut self) {
-    log::info!("starting subscriber");
-    self.load_position().await;
-
-    while self.keep_going {
-      let messages_processed = self.tick().await;
-
-      if messages_processed == 0 {
-        sleep(Duration::from_millis(self.tick_interval_ms as u64));
-      }
-    }
-  }
-
-  pub fn stop(&mut self) {
-    log::info!("stopping subscriber");
-    self.keep_going = false;
   }
 
   pub async fn load_position(&mut self) {
@@ -111,45 +67,21 @@ impl<'a> Subscription<'a> {
     }
   }
 
-  pub async fn tick(&mut self) -> i64 {
-    let messages = self.get_next_batch_of_messages().await;
-    log::trace!("tick");
-    self.process_batch(messages).await
-  }
+  pub async fn poll(&mut self, messages_per_tick: Option<i64>) -> Result<Vec<Message>, Error> {
+    log::trace!("polling");
 
-  pub async fn get_next_batch_of_messages(&self) -> Vec<Message> {
-    let messages = self
+    self
       .reader
       .get_category_messages(
         &self.stream_name,
-        Some(&(self.current_position + 1)),
-        Some(&self.messages_per_tick),
-        self.origin_stream_name.as_ref(),
-        self.consumer_group_member.as_ref(),
-        self.consumer_group_size.as_ref(),
+        Some(self.current_position + 1),
+        messages_per_tick,
+        self.origin_stream_name.as_deref(),
+        self.consumer_group_member,
+        self.consumer_group_size,
         None,
       )
       .await
-      .unwrap();
-    messages
-  }
-
-  pub async fn process_batch(&mut self, messages: Vec<Message>) -> i64 {
-    let messages_count = messages.len() as i64;
-
-    for message in messages {
-      let position = message.global_position;
-      self.handle_message(message).await;
-      self.update_read_position(position).await;
-    }
-
-    messages_count
-  }
-
-  pub async fn handle_message(&self, message: Message) {
-    if let Some(handler) = self.handlers.get(&message.r#type) {
-      handler(message).await;
-    }
   }
 
   pub async fn update_read_position(&mut self, position: i64) {
@@ -161,16 +93,16 @@ impl<'a> Subscription<'a> {
     }
   }
 
-  pub async fn write_position(&mut self, position: i64) {
+  pub async fn write_position(&self, position: i64) {
     let data = json!({ "position": position });
 
     self
       .writer
       .write_message(
-        &Uuid::new_v4(),
+        Uuid::new_v4(),
         &self.subscriber_stream_name,
         &"Read",
-        &data,
+        data,
         None,
         None,
       )
@@ -185,22 +117,20 @@ pub struct Subscriber<'a> {
 }
 
 impl<'a> Subscriber<'a> {
-  pub fn new(reader: Reader<'a>, writer: Writer<'a>) -> Self {
+  pub fn new(pool: &'a PgPool) -> Self {
+    let reader = Reader::new(&pool);
+    let writer = Writer::new(&pool);
+
     Self { reader, writer }
   }
 
   pub fn subscribe(
     &self,
     stream_name: String,
-    handlers: Handlers,
     subscriber_id: String,
-
-    messages_per_tick: Option<i64>,
-    tick_interval_ms: Option<i64>,
 
     position_update_interval: Option<i64>,
     origin_stream_name: Option<String>,
-
     consumer_group_member: Option<i64>,
     consumer_group_size: Option<i64>,
   ) -> Subscription {
@@ -208,30 +138,11 @@ impl<'a> Subscriber<'a> {
       self.reader,
       self.writer,
       stream_name,
-      handlers,
       subscriber_id,
-      messages_per_tick,
-      tick_interval_ms,
       position_update_interval,
       origin_stream_name,
       consumer_group_member,
       consumer_group_size,
     )
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn it_should_run_the_closure() {
-    async fn callback(message: Message) {
-      println!("{:?}", message);
-    }
-
-    let mut handlers = HashMap::new();
-
-    handlers.insert("TestEvent", async_callback!(callback));
   }
 }

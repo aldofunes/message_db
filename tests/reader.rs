@@ -11,7 +11,7 @@ use uuid::Uuid;
 #[test_context(TestSetup)]
 #[tokio::test]
 async fn it_works(ctx: &mut TestSetup) {
-  let message_db = MessageDb::new(&ctx.client);
+  let message_db = MessageDb::new(&ctx.pool);
   let category: String = thread_rng()
     .sample_iter(&Alphanumeric)
     .take(7)

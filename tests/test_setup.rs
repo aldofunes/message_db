@@ -1,18 +1,22 @@
 use async_trait::async_trait;
-use message_db::db_client;
+use sqlx::PgPool;
+use std::env;
 use test_context::AsyncTestContext;
-use tokio_postgres::Client;
 
 pub struct TestSetup {
-  pub client: Client,
+  pub pool: PgPool,
 }
 
 #[async_trait]
 impl AsyncTestContext for TestSetup {
   async fn setup() -> Self {
-    let client = db_client().await.unwrap();
+    let default_connection = "postgresql://postgres:postgres@localhost:5432/postgres";
+    let connection_uri =
+      env::var("MESSAGE_DB_CONNECTION_URI").unwrap_or(String::from(default_connection));
 
-    Self { client }
+    let pool = PgPool::connect(&connection_uri).await.unwrap();
+
+    Self { pool }
   }
 
   async fn teardown(self) {
