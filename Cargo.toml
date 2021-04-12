@@ -1,6 +1,6 @@
 [package]
 name = "message_db"
-version = "0.0.3"
+version = "0.0.5"
 authors = ["aldofunes"]
 edition = "2018"
 description = "Event-Sourced autonomous services for rust"
