@@ -1,7 +1,7 @@
+use crate::error::Error;
 use crate::message::Message;
-use sqlx::{Error, PgPool};
+use sqlx::PgPool;
 
-#[derive(Clone, Copy)]
 pub struct Reader<'a> {
   pool: &'a PgPool,
 }
@@ -21,7 +21,7 @@ impl<'a> Reader<'a> {
     consumer_group_size: Option<i64>,
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
-    sqlx::query_as(
+    let messages = sqlx::query_as(
       "select * from get_category_messages(
         $1::varchar,
         $2::bigint,
@@ -40,7 +40,9 @@ impl<'a> Reader<'a> {
     .bind(consumer_group_size)
     .bind(condition)
     .fetch_all(self.pool)
-    .await
+    .await?;
+
+    Ok(messages)
   }
 
   pub async fn get_stream_messages(
@@ -50,7 +52,7 @@ impl<'a> Reader<'a> {
     batch_size: Option<i64>,
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
-    sqlx::query_as(
+    let messages = sqlx::query_as(
       "select * from get_stream_messages(
         $1::varchar,
         $2::bigint,
@@ -63,13 +65,17 @@ impl<'a> Reader<'a> {
     .bind(batch_size)
     .bind(condition)
     .fetch_all(self.pool)
-    .await
+    .await?;
+
+    Ok(messages)
   }
 
-  pub async fn get_last_stream_message(&self, stream_name: &str) -> Result<Message, Error> {
-    sqlx::query_as("select * from get_last_stream_message($1::varchar)")
+  pub async fn get_last_stream_message(&self, stream_name: &str) -> Result<Option<Message>, Error> {
+    let message = sqlx::query_as("select * from get_last_stream_message($1::varchar)")
       .bind(stream_name)
-      .fetch_one(self.pool)
-      .await
+      .fetch_optional(self.pool)
+      .await?;
+
+    Ok(message)
   }
 }

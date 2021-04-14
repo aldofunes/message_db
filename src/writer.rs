@@ -1,4 +1,5 @@
-use sqlx::{Error, FromRow, PgPool};
+use crate::error::Error;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 #[derive(FromRow)]
@@ -6,7 +7,6 @@ struct WriteMessage {
   write_message: i64,
 }
 
-#[derive(Clone, Copy)]
 pub struct Writer<'a> {
   pool: &'a PgPool,
 }

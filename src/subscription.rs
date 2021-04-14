@@ -1,8 +1,9 @@
+use crate::error::Error;
 use crate::message::Message;
 use crate::reader::Reader;
 use crate::writer::Writer;
 use serde_json::json;
-use sqlx::{Error, PgPool};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub struct Subscription<'a> {
@@ -23,8 +24,7 @@ pub struct Subscription<'a> {
 
 impl<'a> Subscription<'a> {
   pub fn new(
-    reader: Reader<'a>,
-    writer: Writer<'a>,
+    pool: &'a PgPool,
 
     stream_name: String,
     subscriber_id: String,
@@ -34,6 +34,9 @@ impl<'a> Subscription<'a> {
     consumer_group_member: Option<i64>,
     consumer_group_size: Option<i64>,
   ) -> Self {
+    let reader = Reader::new(&pool);
+    let writer = Writer::new(&pool);
+
     let current_position = 0;
     let messages_since_last_position_write = 0;
     let subscriber_stream_name = format!("subscriber-{}", subscriber_id);
@@ -54,23 +57,24 @@ impl<'a> Subscription<'a> {
     }
   }
 
-  pub async fn load_position(&mut self) {
+  pub async fn load_position(&mut self) -> Result<i64, Error> {
     match self
       .reader
       .get_last_stream_message(&self.subscriber_stream_name)
-      .await
+      .await?
     {
-      Ok(message) => {
+      Some(message) => {
         self.current_position = message.data["position"].as_i64().unwrap_or(0);
+        Ok(self.current_position)
       }
-      Err(_) => {}
+      None => Ok(0),
     }
   }
 
   pub async fn poll(&mut self, messages_per_tick: Option<i64>) -> Result<Vec<Message>, Error> {
     log::trace!("polling");
 
-    self
+    let messages = self
       .reader
       .get_category_messages(
         &self.stream_name,
@@ -81,19 +85,23 @@ impl<'a> Subscription<'a> {
         self.consumer_group_size,
         None,
       )
-      .await
+      .await?;
+
+    Ok(messages)
   }
 
-  pub async fn update_read_position(&mut self, position: i64) {
+  pub async fn update_read_position(&mut self, position: i64) -> Result<(), Error> {
     self.current_position = position;
     self.messages_since_last_position_write += 1;
 
     if self.messages_since_last_position_write % self.position_update_interval == 0 {
-      self.write_position(position).await;
+      self.write_position(position).await?;
     }
+
+    Ok(())
   }
 
-  pub async fn write_position(&self, position: i64) {
+  pub async fn write_position(&self, position: i64) -> Result<(), Error> {
     let data = json!({ "position": position });
 
     self
@@ -106,43 +114,8 @@ impl<'a> Subscription<'a> {
         None,
         None,
       )
-      .await
-      .unwrap();
-  }
-}
+      .await?;
 
-pub struct Subscriber<'a> {
-  reader: Reader<'a>,
-  writer: Writer<'a>,
-}
-
-impl<'a> Subscriber<'a> {
-  pub fn new(pool: &'a PgPool) -> Self {
-    let reader = Reader::new(&pool);
-    let writer = Writer::new(&pool);
-
-    Self { reader, writer }
-  }
-
-  pub fn subscribe(
-    &self,
-    stream_name: String,
-    subscriber_id: String,
-
-    position_update_interval: Option<i64>,
-    origin_stream_name: Option<String>,
-    consumer_group_member: Option<i64>,
-    consumer_group_size: Option<i64>,
-  ) -> Subscription {
-    Subscription::new(
-      self.reader,
-      self.writer,
-      stream_name,
-      subscriber_id,
-      position_update_interval,
-      origin_stream_name,
-      consumer_group_member,
-      consumer_group_size,
-    )
+    Ok(())
   }
 }

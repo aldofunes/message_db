@@ -1,7 +1,7 @@
 mod test_setup;
 mod utils;
 
-use message_db::MessageDb;
+use message_db::{Reader, Subscription, Writer};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde_json::json;
 use test_context::{futures, test_context};
@@ -12,7 +12,8 @@ use uuid::Uuid;
 #[test_context(TestSetup)]
 #[tokio::test]
 async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
-  let message_db = MessageDb::new(&ctx.pool);
+  let reader = Reader::new(&ctx.pool);
+  let writer = Writer::new(&ctx.pool);
 
   let id = Uuid::new_v4();
   let stream_name = format!("test-{}", Uuid::new_v4());
@@ -20,8 +21,7 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
   let data = json!({ "foo": "bar" });
   let metadata = json!({ "baz": "qux" });
 
-  match message_db
-    .writer
+  match writer
     .write_message(id, &stream_name, &message_type, data, Some(metadata), None)
     .await
   {
@@ -29,17 +29,11 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
     Err(e) => log::error!("message failed to be written {}", e),
   };
 
-  let message = match message_db
-    .reader
+  let message = reader
     .get_last_stream_message(&stream_name)
     .await
-  {
-    Ok(message) => message,
-    Err(e) => {
-      log::error!("failed to get last stream message: {}", e);
-      panic!("failed to get last stream message");
-    }
-  };
+    .expect("failed to get last stream message")
+    .unwrap();
 
   assert_eq!(message.id, id);
 }
@@ -48,7 +42,7 @@ async fn it_should_publish_and_read_a_message(ctx: &mut TestSetup) {
 #[tokio::test]
 async fn it_should_subscribe(ctx: &mut TestSetup) {
   log::info!("building MessageDb");
-  let message_db = MessageDb::new(&ctx.pool);
+  let writer = Writer::new(&ctx.pool);
 
   log::info!("generating category name");
   let category: String = thread_rng()
@@ -63,11 +57,12 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
   // publish 100 messages
   log::info!("publishing messages");
   for _ in 0..100 {
-    publish_test_message(&message_db, &stream_name).await;
+    publish_test_message(&writer, &stream_name).await;
   }
 
   log::info!("building subscription");
-  let mut subscription = message_db.subscriber.subscribe(
+  let mut subscription = Subscription::new(
+    &ctx.pool,
     category,
     String::from("test_subscriber"),
     Some(1000),
