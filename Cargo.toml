@@ -1,6 +1,6 @@
 [package]
 name = "message_db"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["aldofunes"]
 edition = "2018"
 description = "Event-Sourced autonomous services for rust"
@@ -11,9 +11,9 @@ repository = "https://github.com/aldofunes/message_db/"
 chrono = "0.4.19"
 log = "0.4.14"
 serde_json = "1.0.64"
-tokio = { version = "1.4.0", features = ["full"] }
+tokio = { version = "1.7.1", features = ["full"] }
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
-sqlx = { version = "0.5.1", features = [
+sqlx = { version = "0.5.5", features = [
   "runtime-tokio-native-tls",
   "postgres",
   "uuid",
@@ -23,6 +23,6 @@ sqlx = { version = "0.5.1", features = [
 ] }
 
 [dev-dependencies]
-async-trait = "0.1.48"
-rand = "0.8.3"
+async-trait = "0.1.50"
+rand = "0.8.4"
 test-context = "0.1.3"

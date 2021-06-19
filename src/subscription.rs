@@ -6,6 +6,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+/// The subscription object
 pub struct Subscription<'a> {
   reader: Reader<'a>,
   writer: Writer<'a>,
@@ -14,7 +15,7 @@ pub struct Subscription<'a> {
   messages_since_last_position_write: i64,
 
   subscriber_stream_name: String,
-  stream_name: String,
+  category: String,
 
   position_update_interval: i64,
   origin_stream_name: Option<String>,
@@ -26,7 +27,7 @@ impl<'a> Subscription<'a> {
   pub fn new(
     pool: &'a PgPool,
 
-    stream_name: String,
+    category: String,
     subscriber_id: String,
 
     position_update_interval: Option<i64>,
@@ -39,12 +40,17 @@ impl<'a> Subscription<'a> {
 
     let current_position = 0;
     let messages_since_last_position_write = 0;
-    let subscriber_stream_name = format!("subscriber-{}", subscriber_id);
+    let subscriber_stream_name = format!(
+      "subscriber-{}-{}-{}",
+      category,
+      subscriber_id,
+      consumer_group_member.unwrap_or(1)
+    );
 
     Self {
       reader,
       writer,
-      stream_name,
+      category,
 
       origin_stream_name,
       position_update_interval: position_update_interval.unwrap_or(100),
@@ -57,6 +63,7 @@ impl<'a> Subscription<'a> {
     }
   }
 
+  /// Fetch the current position
   pub async fn load_position(&mut self) -> Result<i64, Error> {
     match self
       .reader
@@ -71,13 +78,14 @@ impl<'a> Subscription<'a> {
     }
   }
 
+  /// Get the next batch of messages for this subscription
   pub async fn poll(&mut self, messages_per_tick: Option<i64>) -> Result<Vec<Message>, Error> {
     log::trace!("polling");
 
     let messages = self
       .reader
       .get_category_messages(
-        &self.stream_name,
+        &self.category,
         Some(self.current_position + 1),
         messages_per_tick,
         self.origin_stream_name.as_deref(),
@@ -90,6 +98,7 @@ impl<'a> Subscription<'a> {
     Ok(messages)
   }
 
+  /// Update the current position of the subscriber
   pub async fn update_read_position(&mut self, position: i64) -> Result<(), Error> {
     self.current_position = position;
     self.messages_since_last_position_write += 1;
@@ -101,8 +110,10 @@ impl<'a> Subscription<'a> {
     Ok(())
   }
 
+  /// Persist the position of the subscriber
   pub async fn write_position(&self, position: i64) -> Result<(), Error> {
     let data = json!({ "position": position });
+    let metadata = json!({ "category": self.category });
 
     self
       .writer
@@ -111,7 +122,7 @@ impl<'a> Subscription<'a> {
         &self.subscriber_stream_name,
         &"Read",
         data,
-        None,
+        Some(metadata),
         None,
       )
       .await?;

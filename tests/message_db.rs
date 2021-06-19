@@ -80,6 +80,7 @@ async fn it_should_subscribe(ctx: &mut TestSetup) {
     messages_processed += 1;
     subscription.update_read_position(position).await;
   }
+  subscription.write_position(24).await;
 
   assert_eq!(messages_processed, 100);
 }

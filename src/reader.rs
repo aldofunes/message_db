@@ -22,7 +22,7 @@ impl<'a> Reader<'a> {
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
     let messages = sqlx::query_as(
-      "select * from get_category_messages(
+      "select * from message_store.get_category_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -53,7 +53,7 @@ impl<'a> Reader<'a> {
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
     let messages = sqlx::query_as(
-      "select * from get_stream_messages(
+      "select * from message_store.get_stream_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -71,7 +71,7 @@ impl<'a> Reader<'a> {
   }
 
   pub async fn get_last_stream_message(&self, stream_name: &str) -> Result<Option<Message>, Error> {
-    let message = sqlx::query_as("select * from get_last_stream_message($1::varchar)")
+    let message = sqlx::query_as("select * from message_store.get_last_stream_message($1::varchar)")
       .bind(stream_name)
       .fetch_optional(self.pool)
       .await?;

@@ -21,11 +21,10 @@
       },
       "options": {
         "env": {
-          "MESSAGE_DB_CONNECTION_URI": "postgresql://postgres:postgres@localhost:5432/postgres"
+          "MESSAGE_DB_CONNECTION_URI": "postgresql://message_store:message_store@localhost:5432/message_store"
         }
       },
-      "label": "Test Binary",
-      "dependsOn": "Run Migrations"
+      "label": "Test Binary"
     },
     {
       "type": "cargo",
@@ -35,13 +34,8 @@
     },
     {
       "type": "shell",
-      "command": "refinery migrate -e DB_URI files -p ./migrations",
-      "options": {
-        "env": {
-          "DB_URI": "postgresql://postgres:postgres@localhost:5432/postgres"
-        }
-      },
-      "label": "Run Migrations"
+      "command": "docker run --rm --detach -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_HOST_AUTH_METHOD=trust -p 5432:5432 articulate/message-db:1.2.3",
+      "label": "Run message-db"
     }
   ]
 }
