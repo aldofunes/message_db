@@ -1,6 +1,6 @@
-use crate::error::Error;
-use crate::message::Message;
+use crate::{entity::Entity, error::Error, event::Event, message::Message};
 use sqlx::PgPool;
+use std::convert::TryInto;
 
 pub struct Reader<'a> {
   pool: &'a PgPool,
@@ -22,7 +22,16 @@ impl<'a> Reader<'a> {
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
     let messages = sqlx::query_as(
-      "select * from message_store.get_category_messages(
+      "select
+        id::uuid,
+        stream_name::varchar,
+        type::varchar,
+        position::bigint,
+        global_position::bigint,
+        data::jsonb,
+        metadata::jsonb,
+        time::timestamp
+      from message_store.get_category_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -53,7 +62,16 @@ impl<'a> Reader<'a> {
     condition: Option<&str>,
   ) -> Result<Vec<Message>, Error> {
     let messages = sqlx::query_as(
-      "select * from message_store.get_stream_messages(
+      "select
+        id::uuid,
+        stream_name::varchar,
+        type::varchar,
+        position::bigint,
+        global_position::bigint,
+        data::jsonb,
+        metadata::jsonb,
+        time::timestamp
+      from message_store.get_stream_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -71,11 +89,49 @@ impl<'a> Reader<'a> {
   }
 
   pub async fn get_last_stream_message(&self, stream_name: &str) -> Result<Option<Message>, Error> {
-    let message = sqlx::query_as("select * from message_store.get_last_stream_message($1::varchar)")
-      .bind(stream_name)
-      .fetch_optional(self.pool)
-      .await?;
+    let message = sqlx::query_as(
+      "select
+        id::uuid,
+        stream_name::varchar,
+        type::varchar,
+        position::bigint,
+        global_position::bigint,
+        data::jsonb,
+        metadata::jsonb,
+        time::timestamp
+     from message_store.get_last_stream_message(
+       $1::varchar
+      )",
+    )
+    .bind(stream_name)
+    .fetch_optional(self.pool)
+    .await?;
 
     Ok(message)
+  }
+
+  pub async fn get_current_entity<E: Entity, V: Event<E>>(
+    &self,
+    entity_id: &str,
+  ) -> Result<E, Error> {
+    let stream_name = format!("{}-{}", E::stream_category(), entity_id);
+
+    let messages = self
+      .get_stream_messages(&stream_name, None, None, None)
+      .await?;
+
+    let mut entity = E::default();
+
+    for message in messages {
+      let event: V = match message.try_into() {
+        Ok(value) => Ok(value),
+        Err(_) => Err(Error::InvalidValue(String::from(
+          "unable to convert message into event",
+        ))),
+      }?;
+      event.apply(&mut entity);
+    }
+
+    Ok(entity)
   }
 }
