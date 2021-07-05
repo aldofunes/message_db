@@ -31,7 +31,7 @@ impl<'a> Reader<'a> {
         data::jsonb,
         metadata::jsonb,
         time::timestamp
-      from message_store.get_category_messages(
+      from get_category_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -71,7 +71,7 @@ impl<'a> Reader<'a> {
         data::jsonb,
         metadata::jsonb,
         time::timestamp
-      from message_store.get_stream_messages(
+      from get_stream_messages(
         $1::varchar,
         $2::bigint,
         $3::bigint,
@@ -99,7 +99,7 @@ impl<'a> Reader<'a> {
         data::jsonb,
         metadata::jsonb,
         time::timestamp
-     from message_store.get_last_stream_message(
+     from get_last_stream_message(
        $1::varchar
       )",
     )

@@ -26,7 +26,7 @@ impl<'a> Writer<'a> {
     expected_version: Option<i64>,
   ) -> Result<i64, Error> {
     let row: WriteMessage = sqlx::query_as(
-      "select message_store.write_message(
+      "select write_message(
         $1::varchar,
         $2::varchar,
         $3::varchar,
